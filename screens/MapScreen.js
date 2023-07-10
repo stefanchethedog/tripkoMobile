@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
 import {
   View,
@@ -27,6 +27,7 @@ import {
   TextInput,
   TouchableWithoutFeedback,
 } from "react-native-gesture-handler";
+import { useNavigation } from "@react-navigation/native";
 
 // AIzaSyAoYI_EL7WP1mPL-ZQ_iboCGZocxaGNjOA google maps API
 //koordinate markera: coordinate= {{latitude: lat, longitude: long}}
@@ -58,6 +59,12 @@ export default function MapScreen() {
 
   const bottomWindowHeight = useRef(new Animated.Value(0)).current;
 
+  const navigation = useNavigation();
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: "Map",
+    });
+  }, []);
   const handleButtonClick = () => {
     if (!windowVisible) {
       setWindowVisible(true);
@@ -65,7 +72,7 @@ export default function MapScreen() {
     if (changing) {
       setChangeMarker(true);
     }
-    const targetHeight = windowVisible ? 0 : -0.4;
+    const targetHeight = windowVisible ? 0 : -40;
 
     Animated.spring(bottomWindowHeight, {
       toValue: targetHeight,
@@ -88,7 +95,7 @@ export default function MapScreen() {
   };
   useEffect(() => {
     // Start the interval when the component mounts
-    const intervalId = setInterval(getUserLocation, 10000);
+    const intervalId = setInterval(getUserLocation, 1000);
     // Clear the interval when the component unmounts
     return () => clearInterval(intervalId);
   }, []);
@@ -121,8 +128,9 @@ export default function MapScreen() {
     setCurrentLocationLoaded(true);
   };
   useEffect(() => {
-    const promise = getUserLocation();
+    getUserLocation();
   }, []);
+
   useEffect(() => {
     const getMarkers = async () => {
       try {
@@ -144,22 +152,6 @@ export default function MapScreen() {
     };
     getMarkers();
 
-    const unsubscribe = onSnapshot(markersCollectionRefs, (snapshot) => {
-      const updatedMarkers = snapshot.docs.map((doc) => {
-        return {
-          ...doc.data(),
-          id: doc.id,
-        };
-      });
-      setMarkers(updatedMarkers);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
     const getUserProfiles = async () => {
       try {
         const data = await getDocs(userProfileCollectionRefs);
@@ -184,10 +176,51 @@ export default function MapScreen() {
         console.error(error);
       }
     };
-    if (markersLoaded) {
+    getUserProfiles();
+
+    const unsubscribe = onSnapshot(markersCollectionRefs, (snapshot) => {
       getUserProfiles();
-    }
-  }, [markersLoaded, markers]);
+      const updatedMarkers = snapshot.docs.map((doc) => {
+        return {
+          ...doc.data(),
+          id: doc.id,
+        };
+      });
+      setMarkers(updatedMarkers);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // useEffect(() => {
+  //   const getUserProfiles = async () => {
+  //     try {
+  //       const data = await getDocs(userProfileCollectionRefs);
+  //       const users = data.docs.map((doc) => ({
+  //         ...doc.data(),
+  //         id: doc.id,
+  //       }));
+  //       setUserProfiles(users);
+  //       setMarkers((prevMarkers) =>
+  //         prevMarkers.map((marker) => {
+  //           const userProfile = users.find(
+  //             (user) => user.userID === marker.userID
+  //           );
+  //           return {
+  //             ...marker,
+  //             user: userProfile,
+  //           };
+  //         })
+  //       );
+  //       setUserProfilesLoaded(true);
+  //     } catch (error) {
+  //       console.error(error);
+  //     }
+  //   };
+  //   getUserProfiles();
+  // }, [markersLoaded, markers]);
 
   const handleFormSubmit = async () => {
     const name = nameInput;
@@ -227,7 +260,7 @@ export default function MapScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      {currentLocationLoaded && (
+      {currentLocationLoaded ? (
         <MapView
           ref={mapRef}
           style={styles.map}
@@ -293,6 +326,12 @@ export default function MapScreen() {
               })
             : null}
         </MapView>
+      ) : (
+        <View
+          style={{ flex: 1, position: "absolute", top: "50%", left: "40%" }}
+        >
+          <Text>The map is loading.</Text>
+        </View>
       )}
       {!windowVisible && (
         <View>
@@ -310,7 +349,9 @@ export default function MapScreen() {
             style={styles.buttonCurrentLocation}
             onPress={handleCurrentLocationPress}
           >
-            <MaterialIcons name="my-location" size={24} color="white" />
+            <View>
+              <MaterialIcons name="my-location" size={24} color="white" />
+            </View>
           </TouchableOpacity>
         </View>
       )}
@@ -323,102 +364,106 @@ export default function MapScreen() {
           <FontAwesome name="times" size={24} color="black" />
         </TouchableOpacity>
       )}
-
-      <View>
-        <Animated.View
-          style={[
-            {
-              height: bottomWindowHeight.interpolate({
-                inputRange: [-0.4, 0],
-                outputRange: ["40%", "0%"],
-                extrapolate: "clamp",
-              }),
-            },
-          ]}
-        >
-          {!changeMarker ? (
-            <View style={styles.windowContent} pointerEvents="box-none">
-              <TextInput
-                style={styles.input}
-                placeholder="Name"
-                onChangeText={(text) => setNameInput(text)}
-                value={nameInput}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Description"
-                onChangeText={(text) => setDescriptionInput(text)}
-                value={descriptionInput}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="City"
-                onChangeText={(text) => setCityInput(text)}
-                value={cityInput}
-              />
-            </View>
-          ) : (
-            <View style={styles.windowContent} pointerEvents="box-none">
-              <Text style={styles.centerText}> Changing marker</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Name"
-                onChangeText={(text) => setNameInput(text)}
-                value={nameInput}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Description"
-                onChangeText={(text) => setDescriptionInput(text)}
-                value={descriptionInput}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="City"
-                onChangeText={(text) => setCityInput(text)}
-                value={cityInput}
-              />
-            </View>
-          )}
-        </Animated.View>
-        {windowVisible && !changeMarker ? (
-          <View style={styles.buttonContain}>
-            <TouchableOpacity style={styles.button} onPress={handleFormSubmit}>
-              <Text style={styles.buttonText}>Submit</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          changeMarker && (
+      {windowVisible && (
+        <View>
+          <Animated.View
+            style={[
+              {
+                height: bottomWindowHeight.interpolate({
+                  inputRange: [-40, 0],
+                  outputRange: ["40%", "0%"],
+                  extrapolate: "clamp",
+                }),
+              },
+            ]}
+          >
+            {!changeMarker ? (
+              <View style={styles.windowContent} pointerEvents="box-none">
+                <TextInput
+                  style={styles.input}
+                  placeholder="Name"
+                  onChangeText={(text) => setNameInput(text)}
+                  value={nameInput}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Description"
+                  onChangeText={(text) => setDescriptionInput(text)}
+                  value={descriptionInput}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="City"
+                  onChangeText={(text) => setCityInput(text)}
+                  value={cityInput}
+                />
+              </View>
+            ) : (
+              <View style={styles.windowContent} pointerEvents="box-none">
+                <Text style={styles.centerText}> Changing marker</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Name"
+                  onChangeText={(text) => setNameInput(text)}
+                  value={nameInput}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Description"
+                  onChangeText={(text) => setDescriptionInput(text)}
+                  value={descriptionInput}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="City"
+                  onChangeText={(text) => setCityInput(text)}
+                  value={cityInput}
+                />
+              </View>
+            )}
+          </Animated.View>
+          {windowVisible && !changeMarker ? (
             <View style={styles.buttonContain}>
               <TouchableOpacity
-                style={styles.buttonCancel}
-                onPress={() => {
-                  handleCloseWindow();
-                }}
+                style={styles.button}
+                onPress={handleFormSubmit}
               >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.buttonDelete}
-                onPress={() => {
-                  deleteMonument(markerIdChange);
-                  handleCloseWindow();
-                }}
-              >
-                <Text style={styles.buttonText}>Delete</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.buttonChange}
-                onPress={() => {
-                  handleChangeForm();
-                }}
-              >
-                <Text style={styles.buttonText}>Change</Text>
+                <Text style={styles.buttonText}>Submit</Text>
               </TouchableOpacity>
             </View>
-          )
-        )}
-      </View>
+          ) : (
+            changeMarker && (
+              <View style={styles.buttonContain}>
+                <TouchableOpacity
+                  style={styles.buttonCancel}
+                  onPress={() => {
+                    handleCloseWindow();
+                  }}
+                >
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.buttonDelete}
+                  onPress={() => {
+                    deleteMonument(markerIdChange);
+                    handleCloseWindow();
+                  }}
+                >
+                  <Text style={styles.buttonText}>Delete</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.buttonChange}
+                  onPress={() => {
+                    handleChangeForm();
+                  }}
+                >
+                  <Text style={styles.buttonText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            )
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -444,7 +489,7 @@ const styles = StyleSheet.create({
     right: 20,
     width: 60,
     height: 60,
-    backgroundColor: "blue",
+    backgroundColor: "#0571ff",
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
