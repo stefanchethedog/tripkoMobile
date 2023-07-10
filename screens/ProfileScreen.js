@@ -5,6 +5,7 @@ import { auth } from "../firebase";
 import { useAuth, upload } from "../firebase";
 import { Buffer } from "buffer";
 import { toByteArray } from "base64-js";
+import { signOut } from "firebase/auth";
 
 export default function ProfileScreen() {
   const [selectedImage, setSelectedImage] = useState(null);
@@ -12,6 +13,14 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [photoBytes, setPhotoBytes] = useState(null);
   const currentUser = useAuth();
+
+  const handleSignOut = () => {
+    signOut(auth)
+      .then(() => {})
+      .catch((error) => {
+        alert(error.message);
+      });
+  };
 
   useEffect(() => {
     (async () => {
@@ -67,6 +76,12 @@ export default function ProfileScreen() {
       {photoURL !== null && (
         <Image key={photoURL} source={{ uri: photoURL }} style={styles.image} />
       )}
+      <View style={styles.container}>
+        <Text>Email: {auth.currentUser?.email}</Text>
+        <TouchableOpacity style={styles.button} onPress={handleSignOut}>
+          <Text style={styles.buttonText}>Sign out</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -93,5 +108,34 @@ const styles = StyleSheet.create({
     height: 200,
     marginTop: 20,
     borderRadius: 10,
+  },
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  button: {
+    backgroundColor: "#0782f9",
+    width: "60%",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 40,
+  },
+  buttonOutline: {
+    backgroundColor: "white",
+    marginTop: 5,
+    borderColor: "#0782f9",
+    borderWidth: 1,
+  },
+  buttonOutlineText: {
+    color: "#0782f9",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "700",
+    fontSize: 16,
   },
 });
