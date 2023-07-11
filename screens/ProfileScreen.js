@@ -21,6 +21,7 @@ import {
   where,
   query,
   onSnapshot,
+  doc,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigation } from "@react-navigation/native";
@@ -105,18 +106,18 @@ export default function ProfileScreen() {
 
   // useEffect(() => {
   //   if (userProfile && userProfile.id) {
-  //     // console.log('From useEffect', userProfile);
-  //     // const unsubscribe = db
-  //     //   .collection("profile")
-  //     //   .doc(userProfile.id)
-  //     //   .onSnapshot((snapshot) => {
-  //     //     if (snapshot.exists) {
-  //     //       setUserProfile({ ...snapshot.data(), id: snapshot.id });
-  //     //     }
-  //     //   });
-  //     // return () => {
-  //     //   unsubscribe();
-  //     // };
+  //     console.log("From useEffect", userProfile);
+  //     const unsubscribe = db
+  //       .collection("profile")
+  //       .doc(userProfile.id)
+  //       .onSnapshot((snapshot) => {
+  //         if (snapshot.exists) {
+  //           setUserProfile({ ...snapshot.data(), id: snapshot.id });
+  //         }
+  //       });
+  //     return () => {
+  //       unsubscribe();
+  //     };
   //   }
   // }, [userProfile]);
 
@@ -163,15 +164,13 @@ export default function ProfileScreen() {
               >
                 <Text style={styles.userBtnText}>Edit</Text>
               </Pressable>
-              <TouchableOpacity style={styles.userLogoutBtn} onPress={() => {}}>
-                <Text
-                  style={styles.userLogoutBtnText}
-                  onPress={() => {
-                    signOut(auth);
-                  }}
-                >
-                  Logout
-                </Text>
+              <TouchableOpacity
+                style={styles.userLogoutBtn}
+                onPress={() => {
+                  signOut(auth);
+                }}
+              >
+                <Text style={styles.userLogoutBtnText}>Logout</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.userInfoWrapper}>
