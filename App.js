@@ -21,6 +21,7 @@ import MonumentDetailsScreen from "./screens/homeStack/MonumentDetailsScreen";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import LeaderboardScreen from "./screens/LeaderboardScreen";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
+import EditProfileScreen from "./screens/EditProfileScreen";
 
 if (typeof atob === "undefined") {
   global.atob = decode;
@@ -29,6 +30,7 @@ const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
+const ProfileStack = createNativeStackNavigator();
 const TopTabs = createMaterialTopTabNavigator();
 
 function TopTabsGroup() {
@@ -66,6 +68,20 @@ function HomeStackGroup() {
     </HomeStack.Navigator>
   );
 }
+function ProfileStackGroup() {
+  return (
+    <ProfileStack.Navigator>
+      <ProfileStack.Screen
+        name="ProfileScreen"
+        component={ProfileScreen}
+      ></ProfileStack.Screen>
+      <ProfileStack.Screen
+        name="EditProfileScreen"
+        component={EditProfileScreen}
+      />
+    </ProfileStack.Navigator>
+  );
+}
 function DrawerGroup() {
   return (
     <Drawer.Navigator screenOptions={{ headerShown: false }}>
@@ -91,7 +107,7 @@ function TabGroup() {
           } else if (route.name === "TopTabsGroup") {
             iconName = "map-pin";
             return <Feather name={iconName} size={size} color={color} />;
-          } else if (route.name === "ProfileScreen") {
+          } else if (route.name === "ProfileStackGroup") {
             iconName = "user";
             return <AntDesign name={iconName} size={size} color={color} />;
           }
@@ -106,7 +122,11 @@ function TabGroup() {
         options={{ headerShown: false, tabBarLabel: "Home" }}
       />
       <Tab.Screen name="TopTabsGroup" component={TopTabsGroup} />
-      <Tab.Screen name="ProfileScreen" component={ProfileScreen} />
+      <Tab.Screen
+        name="ProfileStackGroup"
+        component={ProfileStackGroup}
+        options={{ headerShown: false }}
+      />
     </Tab.Navigator>
   );
 }
