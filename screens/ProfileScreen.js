@@ -50,14 +50,6 @@ export default function ProfileScreen() {
     });
   }, []);
 
-  const handleSignOut = () => {
-    signOut(auth)
-      .then(() => {})
-      .catch((error) => {
-        alert(error.message);
-      });
-  };
-
   const getUserData = async () => {
     setLoading(true);
     setUserProfile(null);
@@ -158,7 +150,6 @@ export default function ProfileScreen() {
                 onPress={() => {
                   navigation.navigate("EditProfileScreen", {
                     userProfile,
-                    setUserProfile,
                   });
                 }}
               >

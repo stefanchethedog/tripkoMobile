@@ -31,6 +31,8 @@ import { useNavigation } from "@react-navigation/native";
 
 // AIzaSyAoYI_EL7WP1mPL-ZQ_iboCGZocxaGNjOA google maps API
 //koordinate markera: coordinate= {{latitude: lat, longitude: long}}
+const markersCollectionRefs = collection(db, "monument");
+const userProfileCollectionRefs = collection(db, "profile");
 
 export default function MapScreen() {
   const [markers, setMarkers] = useState([]);
@@ -38,25 +40,18 @@ export default function MapScreen() {
   const [loadingMarkers, setLoadingMarkers] = useState(false);
   const [userProfilesLoaded, setUserProfilesLoaded] = useState(false);
   const [markersLoaded, setMarkersLoaded] = useState(false);
-  const markersCollectionRefs = collection(db, "monument");
-  const userProfileCollectionRefs = collection(db, "profile");
   const [rerenderMarker, setRerenderMarker] = useState(true);
-  const mapRef = useRef(null);
   const [markerIdChange, setMarkerIdChange] = useState(null);
-
   const [changeMarker, setChangeMarker] = useState(false);
-
   const [changing, setChanging] = useState(false);
-
   const [currentUserLocation, setCurrentUserLocation] = useState(null);
   const [currentLocationLoaded, setCurrentLocationLoaded] = useState(false);
-
   const [windowVisible, setWindowVisible] = useState(false);
-
   const [nameInput, setNameInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
   const [cityInput, setCityInput] = useState("");
 
+  const mapRef = useRef(0);
   const bottomWindowHeight = useRef(new Animated.Value(0)).current;
 
   const navigation = useNavigation();
@@ -160,23 +155,12 @@ export default function MapScreen() {
           id: doc.id,
         }));
         setUserProfiles(users);
-        setMarkers((prevMarkers) =>
-          prevMarkers.map((marker) => {
-            const userProfile = users.find(
-              (user) => user.userID === marker.userID
-            );
-            return {
-              ...marker,
-              user: userProfile,
-            };
-          })
-        );
+
         setUserProfilesLoaded(true);
       } catch (error) {
         console.error(error);
       }
     };
-    getUserProfiles();
 
     const unsubscribe = onSnapshot(markersCollectionRefs, (snapshot) => {
       getUserProfiles();
@@ -253,6 +237,13 @@ export default function MapScreen() {
   async function deleteMonument(id) {
     const monumentDoc = doc(db, "monument", id);
     await deleteDoc(monumentDoc);
+
+    const prevProfile = userProfiles.find((user) => {
+      return user.userID === auth.currentUser.uid;
+    });
+
+    const profileToUpdate = await doc(db, "profile", prevProfile.id);
+    await updateDoc(profileToUpdate, { points: (prevProfile.points -= 10) });
   }
   function handleChangeForm() {
     console.log("this guy");
@@ -296,7 +287,11 @@ export default function MapScreen() {
                     coordinate={coordinateMarker}
                     title={marker.name}
                     onPress={() => {
-                      if (marker.user.userID == auth.currentUser.uid) {
+                      if (
+                        userProfiles.find(
+                          (user) => user.userID === marker.userID
+                        ).userID == auth.currentUser.uid
+                      ) {
                         setChanging(true);
                         setMarkerIdChange(marker.id);
                       }
@@ -312,11 +307,19 @@ export default function MapScreen() {
                       <Text style={styles.calloutText}>
                         Description: {marker.description}
                       </Text>
-                      {marker.user && (
+                      {marker.userID && (
                         <View>
                           <Text style={styles.calloutText}>
-                            name:{" "}
-                            {`${marker.user.name} ${marker.user.surename}`}
+                            name:
+                            {`${
+                              userProfiles.find(
+                                (user) => user.userID === marker.userID
+                              ).name
+                            } ${
+                              userProfiles.find(
+                                (user) => user.userID === marker.userID
+                              ).surename
+                            }`}
                           </Text>
                         </View>
                       )}

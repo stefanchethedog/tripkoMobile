@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -8,49 +8,67 @@ import {
 } from "react-native";
 import { auth, db } from "../firebase";
 import { signOut } from "firebase/auth";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, onSnapshot } from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
+import { ActivityIndicator } from "react-native";
+import { FlatList } from "react-native-gesture-handler";
+import Monument from "../components/monument/Monument";
 
 const profilesRef = collection(db, "profile");
+const monumentsRef = collection(db, "monument");
 
 const HomeScreen = () => {
+  const [loading, setLoading] = useState(true);
+  const [monuments, setMonuments] = useState([]);
+  const [userProfiles, setUserProfiles] = useState([]);
+
+  useEffect(() => {
+    const subscriber = onSnapshot(monumentsRef, (snapshot) => {
+      const monuments = [];
+      snapshot.docs.forEach((snapshot) => {
+        monuments.push({ ...snapshot.data(), key: snapshot.id });
+      });
+      setMonuments(monuments);
+    });
+    return () => subscriber();
+  }, []);
+
+  useEffect(() => {
+    const getUserProfiles = async () => {
+      try {
+        const data = await getDocs(profilesRef);
+        const users = data.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+        }));
+        setUserProfiles(users);
+        setLoading(false);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    getUserProfiles();
+  }, [monuments]);
+
   return (
-    <View style={[styles.container]}>
-      <Text>Home screen</Text>
+    <View>
+      {loading ? (
+        <ActivityIndicator />
+      ) : (
+        <FlatList
+          data={monuments}
+          renderItem={({ item }) => (
+            <Monument
+              monumentInfo={item}
+              userInfo={userProfiles.find(
+                (user) => user.userID === item.userID
+              )}
+            />
+          )}
+        />
+      )}
     </View>
   );
 };
 
 export default HomeScreen;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  button: {
-    backgroundColor: "#0782f9",
-    width: "60%",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 40,
-  },
-  buttonOutline: {
-    backgroundColor: "white",
-    marginTop: 5,
-    borderColor: "#0782f9",
-    borderWidth: 1,
-  },
-  buttonOutlineText: {
-    color: "#0782f9",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  buttonText: {
-    color: "white",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-});
