@@ -12,8 +12,8 @@ import { auth } from "../firebase";
 import { useAuth, upload } from "../firebase";
 import { Buffer } from "buffer";
 import { toByteArray } from "base64-js";
-import { getAuth, signOut } from "firebase/auth";
-import { ScrollView } from "react-native-gesture-handler";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { FlatList, ScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   getDocs,
@@ -25,6 +25,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigation } from "@react-navigation/native";
+import MonumentContent from "../components/monument/MonumentContent";
+import Monument from "../components/monument/Monument";
 
 const profileRef = collection(db, "profile");
 const monumentsRef = collection(db, "monument");
@@ -37,8 +39,12 @@ export default function ProfileScreen() {
   const [userProfile, setUserProfile] = useState(null);
   const [userPostsLikes, setUserPostsLikes] = useState({ posts: 0, likes: 0 });
   const [userDataRetrieved, setUserDataRetrieved] = useState(false);
+  const [monuments, setMonuments] = useState([]);
+  const [monumentsLoaded, setMonumentsLoaded] = useState(false);
 
-  const profileImageURL = auth.currentUser?.photoURL;
+  const [profileImageURL, setProfileImageURL] = useState(
+    auth.currentUser?.photoURL
+  );
 
   const currentUser = useAuth();
 
@@ -86,7 +92,6 @@ export default function ProfileScreen() {
           };
         });
       });
-      console.log(userPostsLikes);
 
       setUserDataRetrieved(true);
     } catch (error) {
@@ -95,31 +100,20 @@ export default function ProfileScreen() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(monumentsRef, async (snapshot) => {
-      getUserData();
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+  useEffect(() => {}, []);
 
-  // useEffect(() => {
-  //   if (userProfile && userProfile.id) {
-  //     console.log("From useEffect", userProfile);
-  //     const unsubscribe = db
-  //       .collection("profile")
-  //       .doc(userProfile.id)
-  //       .onSnapshot((snapshot) => {
-  //         if (snapshot.exists) {
-  //           setUserProfile({ ...snapshot.data(), id: snapshot.id });
-  //         }
-  //       });
-  //     return () => {
-  //       unsubscribe();
-  //     };
-  //   }
-  // }, [userProfile]);
+  useEffect(() => {
+    if (userProfile) {
+      const documentRef = doc(db, "profile", userProfile.id);
+      const unsubscribe = onSnapshot(documentRef, (snapshot) => {
+        const data = snapshot.data();
+        setUserProfile({ ...snapshot.data(), id: snapshot.id });
+      });
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [userDataRetrieved]);
 
   useEffect(() => {
     (async () => {
@@ -131,6 +125,14 @@ export default function ProfileScreen() {
     })();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = onSnapshot(monumentsRef, async (snapshot) => {
+      getUserData();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [userDataRetrieved]);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       {loading ? (
@@ -139,15 +141,22 @@ export default function ProfileScreen() {
         </View>
       ) : (
         userDataRetrieved && (
-          <ScrollView
+          <View
             contentContainerStyle={{
+              display: "flex",
               justifyContent: "center",
               alignItems: "center",
             }}
             showsVerticalScrollIndicator={false}
           >
-            <Image style={styles.userImg} source={{ uri: profileImageURL }} />
-            <Text style={styles.userName}> {`${userProfile.username}`}</Text>
+            <Image
+              style={[styles.userImg, { alignSelf: "center" }]}
+              source={{ uri: profileImageURL }}
+            />
+            <Text style={[styles.userName, { alignSelf: "center" }]}>
+              {" "}
+              {`${userProfile.username}`}
+            </Text>
             <Text
               style={styles.aboutUser}
             >{`${userProfile.name} ${userProfile.surename}`}</Text>
@@ -182,17 +191,11 @@ export default function ProfileScreen() {
               <View style={styles.userInfoItem}>
                 <Text
                   style={styles.userInfoTitle}
-                >{`${userPostsLikes.likes}`}</Text>
-                <Text style={styles.userInfoSubtitle}> Likes</Text>
-              </View>
-              <View style={styles.userInfoItem}>
-                <Text
-                  style={styles.userInfoTitle}
                 >{`${userProfile.points}`}</Text>
                 <Text style={styles.userInfoSubtitle}> Points</Text>
               </View>
             </View>
-          </ScrollView>
+          </View>
         )
       )}
     </SafeAreaView>

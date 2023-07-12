@@ -118,14 +118,18 @@ const HomeScreen = () => {
         <View>
           <FlatList
             data={filteredMonuments}
-            renderItem={({ item }) => (
-              <Monument
-                monumentInfo={item}
-                userInfo={userProfiles.find(
-                  (user) => user.userID === item.userID
-                )}
-              />
-            )}
+            renderItem={({ item }) => {
+              if (item) {
+                return (
+                  <Monument
+                    monumentInfo={item}
+                    userInfo={userProfiles.find(
+                      (user) => user.userID === item.userID
+                    )}
+                  />
+                );
+              }
+            }}
           />
         </View>
       )}

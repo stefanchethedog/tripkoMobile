@@ -75,9 +75,6 @@ export default function LeaderboardScreen() {
     <View style={{ width: "100%", height: "100%" }}>
       {dataLoaded ? (
         <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.headerText}>Leaderboard</Text>
-          </View>
           <FlatList
             data={data}
             renderItem={({ item, index }) => {

@@ -148,10 +148,11 @@ function TabGroup() {
 
 export default function App() {
   const [userLoggedIn, setUserLoggedIn] = useState(false);
-
+  const [initializing, setInitializing] = useState(true);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUserLoggedIn(user ? true : false);
+      setInitializing(false);
     });
 
     return unsubscribe;

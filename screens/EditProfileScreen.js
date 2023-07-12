@@ -29,9 +29,7 @@ export default function EditProfileScreen() {
   const [name, setName] = useState(userProfile.name);
   const [surname, setSurname] = useState(userProfile.surename);
   const [profilePicture, setProfilePicture] = useState(null);
-  const [country, setCountry] = useState("");
-  const [city, setCity] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(userProfile.phone);
 
   const [profilePictureChange, setProfilePictureChange] = useState(false);
   const navigation = useNavigation();
@@ -82,9 +80,16 @@ export default function EditProfileScreen() {
   };
 
   const handleSaveProfile = async () => {
-    const profileDoc = doc(db, "profile", userProfile.id);
-    await updateDoc(profileDoc, { name, surename: surname });
-    if (profilePictureChange) uploadImage();
+    try {
+      console.log("trying");
+      const profileDoc = doc(db, "profile", userProfile.id);
+      await updateDoc(profileDoc, { name, surename: surname, phone });
+      if (profilePictureChange) uploadImage();
+      alert("Profile has been saved");
+    } catch (error) {
+      console.error(error);
+      alert("There was an error");
+    }
   };
 
   const handleCancelProfile = () => {
@@ -131,34 +136,6 @@ export default function EditProfileScreen() {
           placeholder="Surname"
           value={surname}
           onChangeText={setSurname}
-        />
-      </View>
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="location-on"
-          size={24}
-          color="gray"
-          style={styles.icon}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Country"
-          value={country}
-          onChangeText={setCountry}
-        />
-      </View>
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="location-city"
-          size={24}
-          color="gray"
-          style={styles.icon}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="City"
-          value={city}
-          onChangeText={setCity}
         />
       </View>
       <View style={styles.inputContainer}>

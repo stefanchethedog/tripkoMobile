@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { auth, db, upload } from "../firebase";
+import { Ionicons } from "@expo/vector-icons";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -31,6 +32,7 @@ const LoginScreen = () => {
   const [name, setName] = useState("");
   const [surename, setSurename] = useState("");
   const [profilePicture, setProfilePicture] = useState(null);
+  const [mobilePhone, setMobilePhone] = useState("");
 
   const [register, setRegister] = useState(false);
 
@@ -104,8 +106,17 @@ const LoginScreen = () => {
       alert("The password is incorrect, please try again.");
     }
   };
+
   const handleSignUp = async () => {
-    if (!username || !password || !name || !surename || !email) {
+    if (
+      !username ||
+      !password ||
+      !name ||
+      !surename ||
+      !email ||
+      !profilePicture ||
+      !mobilePhone
+    ) {
       alert("Input all the data");
       return;
     }
@@ -125,6 +136,7 @@ const LoginScreen = () => {
         surename,
         points: 0,
         userID: userCredentials.user.uid,
+        phone: mobilePhone,
       };
 
       const profilesRef = collection(db, "profile");
@@ -133,9 +145,9 @@ const LoginScreen = () => {
       // Call uploadImage after the user is created and the document is added
       await uploadImage(userCredentials.user.uid);
 
-      console.log("User registered and profile updated successfully");
+      alert("Registered successfully");
     } catch (error) {
-      console.log(error.message);
+      alert("Registration failed");
     }
   };
 
@@ -179,46 +191,106 @@ const LoginScreen = () => {
                 )}
               </View>
             </TouchableOpacity>
-            <TextInput
-              placeholder="Username"
-              style={styles.input}
-              value={username}
-              onChangeText={(text) => {
-                setUsername(text);
-              }}
-            />
-            <TextInput
-              placeholder="Password"
-              style={styles.input}
-              value={password}
-              onChangeText={(text) => setPassword(text)}
-              secureTextEntry
-            />
-            <TextInput
-              placeholder="Email"
-              style={styles.input}
-              value={email}
-              onChangeText={(text) => setEmail(text)}
-            />
             <View
               style={{
                 display: "flex",
                 flexDirection: "row",
-                width: "85%",
+                width: "100%",
                 justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
+              <Ionicons name="person" size={24} color="black" />
+              <TextInput
+                placeholder="Username"
+                style={[styles.input, { flex: 1, marginLeft: 5 }]}
+                value={username}
+                onChangeText={(text) => setUsername(text)}
+              />
+            </View>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="lock-closed" size={24} color="black" />
+              <TextInput
+                placeholder="Password"
+                style={[styles.input, { flex: 1, marginLeft: 5 }]}
+                value={password}
+                onChangeText={(text) => setPassword(text)}
+                secureTextEntry
+              />
+            </View>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="mail" size={24} color="black" />
+              <TextInput
+                placeholder="Email"
+                style={[styles.input, { flex: 1, marginLeft: 5 }]}
+                value={email}
+                onChangeText={(text) => setEmail(text)}
+              />
+            </View>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons
+                name="person"
+                size={24}
+                color="black"
+                style={styles.icon}
+              />
               <TextInput
                 placeholder="Name"
-                style={styles.inputRowLeft}
+                style={[styles.input, { flex: 3, marginRight: 1 }]}
                 value={name}
                 onChangeText={(text) => setName(text)}
               />
               <TextInput
                 placeholder="Surename"
-                style={styles.inputRowRight}
+                style={[styles.input, { flex: 4, marginLeft: 1 }]}
                 value={surename}
                 onChangeText={(text) => setSurename(text)}
+              />
+            </View>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons
+                name="call"
+                size={24}
+                color="black"
+                style={styles.icon}
+              />
+              <TextInput
+                placeholder="Phone"
+                style={[styles.input, { flex: 1 }]}
+                value={mobilePhone}
+                onChangeText={(text) => setMobilePhone(text)}
               />
             </View>
           </View>
@@ -298,6 +370,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: "black",
   },
+  inputRow: {},
   inputRowLeft: {
     backgroundColor: "white",
     paddingHorizontal: 15,
