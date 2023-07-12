@@ -28,9 +28,12 @@ import {
   TouchableWithoutFeedback,
 } from "react-native-gesture-handler";
 import { useNavigation } from "@react-navigation/native";
+import { Modal } from "react-native";
 
 // AIzaSyAoYI_EL7WP1mPL-ZQ_iboCGZocxaGNjOA google maps API
 //koordinate markera: coordinate= {{latitude: lat, longitude: long}}
+const markersCollectionRefs = collection(db, "monument");
+const userProfileCollectionRefs = collection(db, "profile");
 
 export default function MapScreen() {
   const [markers, setMarkers] = useState([]);
@@ -38,26 +41,94 @@ export default function MapScreen() {
   const [loadingMarkers, setLoadingMarkers] = useState(false);
   const [userProfilesLoaded, setUserProfilesLoaded] = useState(false);
   const [markersLoaded, setMarkersLoaded] = useState(false);
-  const markersCollectionRefs = collection(db, "monument");
-  const userProfileCollectionRefs = collection(db, "profile");
   const [rerenderMarker, setRerenderMarker] = useState(true);
-  const mapRef = useRef(null);
   const [markerIdChange, setMarkerIdChange] = useState(null);
-
   const [changeMarker, setChangeMarker] = useState(false);
-
   const [changing, setChanging] = useState(false);
-
   const [currentUserLocation, setCurrentUserLocation] = useState(null);
   const [currentLocationLoaded, setCurrentLocationLoaded] = useState(false);
-
   const [windowVisible, setWindowVisible] = useState(false);
-
   const [nameInput, setNameInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
   const [cityInput, setCityInput] = useState("");
+  const [counter, setCounter] = useState(3);
+  const [filteredMarkers, setFilteredMarkers] = useState([]);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filterUsername, setFilterUsername] = useState("");
+  const [filterTitle, setFilterTitle] = useState("");
+  const [filterCity, setFilterCity] = useState("");
+  const [showAddMarkerModal, setShowAddMarkerModal] = useState(false);
+  const [addMarkerName, setAddMarkerName] = useState("");
+  const [addMarkerDescription, setAddMarkerDescription] = useState("");
+  const [addMarkerCity, setAddMarkerCity] = useState("");
+  const [updateMarkerId, setUpdateMarkerId] = useState("");
+  const [updateMarkerName, setUpdateMarkerName] = useState("");
+  const [updateMarkerDescription, setUpdateMarkerDescription] = useState("");
+  const [updateMarkerCity, setUpdateMarkerCity] = useState("");
+  const [showUpdateMarkerModal, setShowUpdateMarkerModal] = useState(false);
 
+  const incrementCounter = () => {
+    const markersAfterFiltering = markers.filter((marker) => {
+      if (counter === 0) {
+        return (
+          calculateDistance(
+            marker.location.latitude,
+            marker.location.longitude,
+            currentUserLocation.latitude,
+            currentUserLocation.longitude
+          ) < 150
+        );
+      } else if (counter === 1) {
+        return (
+          calculateDistance(
+            marker.location.latitude,
+            marker.location.longitude,
+            currentUserLocation.latitude,
+            currentUserLocation.longitude
+          ) < 300
+        );
+      } else if (counter === 2) {
+        return true;
+      } else if (counter === 3) {
+        return (
+          calculateDistance(
+            marker.location.latitude,
+            marker.location.longitude,
+            currentUserLocation.latitude,
+            currentUserLocation.longitude
+          ) < 50
+        );
+      }
+    });
+    setFilteredMarkers(markersAfterFiltering);
+    if (counter === 3) {
+      setCounter(0);
+    } else {
+      setCounter((prev) => prev + 1);
+    }
+  };
+  const mapRef = useRef(0);
   const bottomWindowHeight = useRef(new Animated.Value(0)).current;
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance * 1000; // Convert to meters
+  };
+
+  // Helper function to convert degrees to radians
+  const toRadians = (degrees) => {
+    return degrees * (Math.PI / 180);
+  };
 
   const navigation = useNavigation();
   useLayoutEffect(() => {
@@ -66,22 +137,15 @@ export default function MapScreen() {
     });
   }, []);
   const handleButtonClick = () => {
-    if (!windowVisible) {
-      setWindowVisible(true);
-    }
     if (changing) {
       setChangeMarker(true);
+      const marker = markers.find((marker) => marker.id === markerIdChange);
+      setUpdateMarkerName(marker.name);
+      setUpdateMarkerCity(marker.city);
+      setUpdateMarkerDescription(marker.description);
+    } else {
+      setShowAddMarkerModal(true);
     }
-    const targetHeight = windowVisible ? 0 : -40;
-
-    Animated.spring(bottomWindowHeight, {
-      toValue: targetHeight,
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      if (finished && targetHeight === 0 && windowVisible) {
-        setWindowVisible(false);
-      }
-    });
   };
   const handleCloseWindow = () => {
     setWindowVisible(false);
@@ -94,9 +158,8 @@ export default function MapScreen() {
     }).start(() => {});
   };
   useEffect(() => {
-    // Start the interval when the component mounts
-    const intervalId = setInterval(getUserLocation, 1000);
-    // Clear the interval when the component unmounts
+    setTimeout(() => getUserLocation(), 100);
+    const intervalId = setInterval(getUserLocation, 5000);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -127,9 +190,6 @@ export default function MapScreen() {
     setRerenderMarker(true);
     setCurrentLocationLoaded(true);
   };
-  useEffect(() => {
-    getUserLocation();
-  }, []);
 
   useEffect(() => {
     const getMarkers = async () => {
@@ -143,6 +203,7 @@ export default function MapScreen() {
           };
         });
         setMarkers(filteredData);
+        setFilteredMarkers(filteredData);
         setLoadingMarkers(false);
         setMarkersLoaded(true);
       } catch (error) {
@@ -160,23 +221,12 @@ export default function MapScreen() {
           id: doc.id,
         }));
         setUserProfiles(users);
-        setMarkers((prevMarkers) =>
-          prevMarkers.map((marker) => {
-            const userProfile = users.find(
-              (user) => user.userID === marker.userID
-            );
-            return {
-              ...marker,
-              user: userProfile,
-            };
-          })
-        );
+
         setUserProfilesLoaded(true);
       } catch (error) {
         console.error(error);
       }
     };
-    getUserProfiles();
 
     const unsubscribe = onSnapshot(markersCollectionRefs, (snapshot) => {
       getUserProfiles();
@@ -187,46 +237,69 @@ export default function MapScreen() {
         };
       });
       setMarkers(updatedMarkers);
+      setFilteredMarkers(updatedMarkers);
+      setCounter(3);
     });
 
     return () => {
       unsubscribe();
     };
   }, []);
+  const handleFilterButtonPress = () => {
+    setShowFilterModal(true);
+  };
 
-  // useEffect(() => {
-  //   const getUserProfiles = async () => {
-  //     try {
-  //       const data = await getDocs(userProfileCollectionRefs);
-  //       const users = data.docs.map((doc) => ({
-  //         ...doc.data(),
-  //         id: doc.id,
-  //       }));
-  //       setUserProfiles(users);
-  //       setMarkers((prevMarkers) =>
-  //         prevMarkers.map((marker) => {
-  //           const userProfile = users.find(
-  //             (user) => user.userID === marker.userID
-  //           );
-  //           return {
-  //             ...marker,
-  //             user: userProfile,
-  //           };
-  //         })
-  //       );
-  //       setUserProfilesLoaded(true);
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-  //   };
-  //   getUserProfiles();
-  // }, [markersLoaded, markers]);
+  const handleFilterApply = () => {
+    const filteredMonuments = filteredMarkers.filter((monument) => {
+      const { userID, name } = monument;
+      const username =
+        userProfiles.find((user) => user.userID === userID)?.username || "";
 
+      const usernameMatch = username
+        .toLowerCase()
+        .includes(filterUsername.toLowerCase());
+      const cityMatch = monument.city
+        .toLowerCase()
+        .includes(filterCity.toLowerCase());
+      const titleMatch = name.toLowerCase().includes(filterTitle.toLowerCase());
+
+      return usernameMatch && cityMatch && titleMatch;
+    });
+    setFilteredMarkers(filteredMonuments);
+    setShowFilterModal(false);
+  };
+
+  const handleClearFilter = () => {
+    setFilterUsername("");
+    setFilterTitle("");
+    setFilterCity("");
+    setFilteredMarkers(markers);
+  };
+
+  const handleFilterCancel = () => {
+    setShowFilterModal(false);
+  };
+
+  const getTextForState = () => {
+    switch (counter) {
+      case 0:
+        return "50";
+      case 1:
+        return "150";
+      case 2:
+        return "300";
+      case 3:
+        return "∞";
+      default:
+        return "";
+    }
+  };
   const handleFormSubmit = async () => {
     const name = nameInput;
     const city = cityInput;
     const description = descriptionInput;
     const currUser = auth.currentUser.uid;
+
     const obj = {
       city,
       creationDate: new Date().toDateString(),
@@ -245,14 +318,93 @@ export default function MapScreen() {
     const prevProfile = userProfiles.find((user) => {
       return user.userID === currUser;
     });
-
+    console.log(prevProfile);
     const profileToUpdate = await doc(db, "profile", prevProfile.id);
     await updateDoc(profileToUpdate, { points: (prevProfile.points += 10) });
+  };
+  const handleAddMarkerButtonPress = () => {
+    setShowAddMarkerModal(true);
+  };
+
+  const handleCloseAddMarkerModal = () => {
+    setShowAddMarkerModal(false);
+  };
+
+  const handleUpdateMarker = async () => {
+    try {
+      const updatedMarker = {
+        name: updateMarkerName,
+        description: updateMarkerDescription,
+        city: updateMarkerCity,
+      };
+      if (!updateMarkerName || !updateMarkerDescription || !updateMarkerCity) {
+        alert("Input all the data");
+      }
+
+      const markerDocRef = doc(db, "monument", markerIdChange);
+      await updateDoc(markerDocRef, updatedMarker);
+      alert("Marker has been changed");
+    } catch (error) {
+      alert(error);
+    }
+    setChangeMarker(false);
+    setChanging(false);
+    setShowUpdateMarkerModal(false);
+    setUpdateMarkerId("");
+    setUpdateMarkerName("");
+    setUpdateMarkerDescription("");
+    setUpdateMarkerCity("");
+  };
+
+  const handleAddMarker = async () => {
+    if (!addMarkerName || !addMarkerDescription || !addMarkerCity) {
+      return;
+    }
+    const name = addMarkerName;
+    const city = addMarkerCity;
+    const description = addMarkerDescription;
+    const currUser = auth.currentUser.uid;
+
+    const obj = {
+      city,
+      creationDate: new Date().toDateString(),
+      description,
+      location: new GeoPoint(
+        currentUserLocation.latitude,
+        currentUserLocation.longitude
+      ),
+      name,
+      userID: currUser,
+    };
+    //da dodamo obj u monument kolekciju
+    await addDoc(markersCollectionRefs, obj);
+
+    //da dodamo 10 poena useru
+    const prevProfile = userProfiles.find((user) => {
+      return user.userID === currUser;
+    });
+    console.log(prevProfile);
+    const profileToUpdate = await doc(db, "profile", prevProfile.id);
+    await updateDoc(profileToUpdate, { points: (prevProfile.points += 10) });
+
+    setAddMarkerName("");
+    setAddMarkerDescription("");
+    setAddMarkerCity("");
+    setShowAddMarkerModal(false);
   };
 
   async function deleteMonument(id) {
     const monumentDoc = doc(db, "monument", id);
     await deleteDoc(monumentDoc);
+
+    const prevProfile = userProfiles.find((user) => {
+      return user.userID === auth.currentUser.uid;
+    });
+
+    const profileToUpdate = await doc(db, "profile", prevProfile.id);
+    await updateDoc(profileToUpdate, { points: (prevProfile.points -= 10) });
+    setChangeMarker(false);
+    setChanging(false);
   }
   function handleChangeForm() {
     console.log("this guy");
@@ -270,6 +422,7 @@ export default function MapScreen() {
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
           }}
+          onPress={() => {}}
         >
           {rerenderMarker && (
             <Marker
@@ -284,7 +437,7 @@ export default function MapScreen() {
             </Marker>
           )}
           {markersLoaded && userProfilesLoaded
-            ? markers.map((marker) => {
+            ? filteredMarkers.map((marker) => {
                 const coordinateMarker = {
                   latitude: marker.location.latitude,
                   longitude: marker.location.longitude,
@@ -296,7 +449,11 @@ export default function MapScreen() {
                     coordinate={coordinateMarker}
                     title={marker.name}
                     onPress={() => {
-                      if (marker.user.userID == auth.currentUser.uid) {
+                      if (
+                        userProfiles.find(
+                          (user) => user.userID === marker.userID
+                        ).userID == auth.currentUser.uid
+                      ) {
                         setChanging(true);
                         setMarkerIdChange(marker.id);
                       }
@@ -312,11 +469,19 @@ export default function MapScreen() {
                       <Text style={styles.calloutText}>
                         Description: {marker.description}
                       </Text>
-                      {marker.user && (
+                      {marker.userID && (
                         <View>
                           <Text style={styles.calloutText}>
-                            name:{" "}
-                            {`${marker.user.name} ${marker.user.surename}`}
+                            name:
+                            {`${
+                              userProfiles.find(
+                                (user) => user.userID === marker.userID
+                              ).name
+                            } ${
+                              userProfiles.find(
+                                (user) => user.userID === marker.userID
+                              ).surename
+                            }`}
                           </Text>
                         </View>
                       )}
@@ -333,137 +498,184 @@ export default function MapScreen() {
           <Text>The map is loading.</Text>
         </View>
       )}
-      {!windowVisible && (
-        <View>
-          <TouchableOpacity
-            style={styles.floatingButton}
-            onPress={handleButtonClick}
-          >
-            {!changing ? (
-              <FontAwesome name="plus" size={24} color="white" />
-            ) : (
-              <AntDesign name="setting" size={24} color="white" />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.buttonCurrentLocation}
-            onPress={handleCurrentLocationPress}
-          >
-            <View>
-              <MaterialIcons name="my-location" size={24} color="white" />
-            </View>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {windowVisible && (
+      <View>
         <TouchableOpacity
-          style={styles.closeButton}
-          onPress={handleCloseWindow}
+          style={styles.floatingButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleButtonClick();
+          }}
         >
-          <FontAwesome name="times" size={24} color="black" />
-        </TouchableOpacity>
-      )}
-      {windowVisible && (
-        <View>
-          <Animated.View
-            style={[
-              {
-                height: bottomWindowHeight.interpolate({
-                  inputRange: [-40, 0],
-                  outputRange: ["40%", "0%"],
-                  extrapolate: "clamp",
-                }),
-              },
-            ]}
-          >
-            {!changeMarker ? (
-              <View style={styles.windowContent} pointerEvents="box-none">
-                <TextInput
-                  style={styles.input}
-                  placeholder="Name"
-                  onChangeText={(text) => setNameInput(text)}
-                  value={nameInput}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Description"
-                  onChangeText={(text) => setDescriptionInput(text)}
-                  value={descriptionInput}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="City"
-                  onChangeText={(text) => setCityInput(text)}
-                  value={cityInput}
-                />
-              </View>
-            ) : (
-              <View style={styles.windowContent} pointerEvents="box-none">
-                <Text style={styles.centerText}> Changing marker</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Name"
-                  onChangeText={(text) => setNameInput(text)}
-                  value={nameInput}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Description"
-                  onChangeText={(text) => setDescriptionInput(text)}
-                  value={descriptionInput}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="City"
-                  onChangeText={(text) => setCityInput(text)}
-                  value={cityInput}
-                />
-              </View>
-            )}
-          </Animated.View>
-          {windowVisible && !changeMarker ? (
-            <View style={styles.buttonContain}>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={handleFormSubmit}
-              >
-                <Text style={styles.buttonText}>Submit</Text>
-              </TouchableOpacity>
-            </View>
+          {!changing ? (
+            <FontAwesome name="plus" size={24} color="white" />
           ) : (
-            changeMarker && (
-              <View style={styles.buttonContain}>
+            <AntDesign name="setting" size={24} color="white" />
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.buttonCurrentLocation}
+          onPress={handleCurrentLocationPress}
+        >
+          <View>
+            <MaterialIcons name="my-location" size={24} color="white" />
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.buttonRadiusLocation}
+          onPress={incrementCounter}
+        >
+          <Text style={{ fontSize: 23, fontWeight: "bold", color: "white" }}>
+            {getTextForState()}
+          </Text>
+        </TouchableOpacity>
+        <Modal
+          visible={showFilterModal}
+          animationType="slide"
+          transparent={true}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              {/* Text inputs for filtering */}
+              <TextInput
+                style={styles.input}
+                placeholder="Filter by username"
+                value={filterUsername}
+                onChangeText={setFilterUsername}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Filter by title"
+                value={filterTitle}
+                onChangeText={setFilterTitle}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Filter by city"
+                value={filterCity}
+                onChangeText={setFilterCity}
+              />
+              <View style={styles.buttonContainer}>
                 <TouchableOpacity
-                  style={styles.buttonCancel}
-                  onPress={() => {
-                    handleCloseWindow();
-                  }}
+                  style={styles.applyButton}
+                  onPress={handleFilterApply}
                 >
-                  <Text style={styles.buttonText}>Cancel</Text>
+                  <Text style={styles.buttonModalText}>Apply</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.buttonDelete}
+                  style={styles.clearButton}
+                  onPress={handleClearFilter}
+                >
+                  <Text style={styles.buttonClearText}>Clear</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={handleFilterCancel}
+                >
+                  <Text style={styles.buttonModalText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        <Modal
+          visible={showAddMarkerModal}
+          animationType="slide"
+          transparent={true}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              {/* Text inputs for adding marker */}
+              <TextInput
+                style={styles.input}
+                placeholder="Marker Title"
+                value={addMarkerName}
+                onChangeText={setAddMarkerName}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Marker Description"
+                value={addMarkerDescription}
+                onChangeText={setAddMarkerDescription}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Marker City"
+                value={addMarkerCity}
+                onChangeText={setAddMarkerCity}
+              />
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={styles.applyButton}
+                  onPress={handleAddMarker}
+                >
+                  <Text style={styles.buttonModalText}>Add Marker</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={handleCloseAddMarkerModal}
+                >
+                  <Text style={styles.buttonModalText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        <Modal visible={changeMarker} animationType="slide" transparent={true}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <TextInput
+                style={styles.input}
+                placeholder="Marker Title"
+                value={updateMarkerName}
+                onChangeText={setUpdateMarkerName}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Marker Description"
+                value={updateMarkerDescription}
+                onChangeText={setUpdateMarkerDescription}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Marker City"
+                value={updateMarkerCity}
+                onChangeText={setUpdateMarkerCity}
+              />
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={styles.applyButton}
+                  onPress={handleUpdateMarker}
+                >
+                  <Text style={styles.buttonModalText}>Update</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deleteButton}
                   onPress={() => {
                     deleteMonument(markerIdChange);
-                    handleCloseWindow();
                   }}
                 >
-                  <Text style={styles.buttonText}>Delete</Text>
+                  <Text style={styles.buttonModalText}>Delete</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.buttonChange}
+                  style={styles.cancelButton}
                   onPress={() => {
-                    handleChangeForm();
+                    setChangeMarker(false);
+                    setChanging(false);
                   }}
                 >
-                  <Text style={styles.buttonText}>Change</Text>
+                  <Text style={styles.buttonModalText}>Close</Text>
                 </TouchableOpacity>
               </View>
-            )
-          )}
-        </View>
-      )}
+            </View>
+          </View>
+        </Modal>
+        <TouchableOpacity
+          style={styles.floatingFilterButton}
+          onPress={handleFilterButtonPress}
+        >
+          <Text style={styles.buttonFilterText}>Filter</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -483,25 +695,126 @@ const styles = StyleSheet.create({
     fontSize: 25,
     alignSelf: "center",
   },
+  clearButton: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#0782f9",
+    padding: 10,
+    alignItems: "center",
+    flex: 1,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    padding: 16,
+    borderRadius: 30,
+    width: "80%",
+  },
+  buttonFilterText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  applyButton: {
+    backgroundColor: "#0782f9",
+    borderRadius: 20,
+    padding: 10,
+    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
+  },
+  deleteButton: {
+    backgroundColor: "red",
+    borderRadius: 20,
+    padding: 10,
+    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
+  },
+  cancelButton: {
+    backgroundColor: "gray",
+    borderRadius: 20,
+    padding: 10,
+    alignItems: "center",
+    flex: 1,
+    marginLeft: 8,
+  },
+  buttonModalText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  updateButton: {
+    backgroundColor: "green",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonClearText: {
+    color: "#0782f9",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
   floatingButton: {
     position: "absolute",
-    bottom: 63,
+    bottom: 20,
     right: 20,
-    width: 60,
-    height: 60,
+    width: 80,
+    height: 80,
     backgroundColor: "#0571ff",
-    borderRadius: 30,
+    borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
   },
+  floatingFilterButton: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    backgroundColor: "red",
+    borderRadius: 15,
+    width: 90,
+    height: 70,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "black",
+    shadowOpacity: 0.3,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowRadius: 4,
+  },
   buttonCurrentLocation: {
     position: "absolute",
-    bottom: 135,
-    right: 26,
+    bottom: 115,
+    right: 33,
     backgroundColor: "#aaaaaa",
     borderRadius: 50,
-    width: 45,
-    height: 45,
+    width: 55,
+    height: 55,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buttonRadiusLocation: {
+    position: "absolute",
+    bottom: 33,
+    right: 115,
+    backgroundColor: "#bababa",
+    borderRadius: 50,
+    borderColor: "#0571ff",
+    width: 55,
+    height: 55,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -536,7 +849,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: "absolute",
-    top: 530,
+    top: 500,
     right: 15,
     width: 40,
     height: 40,
@@ -555,7 +868,7 @@ const styles = StyleSheet.create({
     borderColor: "gray",
     backgroundColor: "white",
     borderWidth: 1,
-    marginTop: 5,
+    marginTop: 10,
     marginBottom: 2,
     borderRadius: 8,
     paddingHorizontal: 8,
@@ -572,8 +885,8 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: "blue",
-    height: "100%",
-    width: "100%",
+    height: "70%",
+    width: "98%",
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 20,

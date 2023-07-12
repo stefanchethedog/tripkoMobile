@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../firebase";
+import { auth, db, upload } from "../firebase";
+import { Ionicons } from "@expo/vector-icons";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -16,7 +17,13 @@ import {
 import { addDoc, query, where, collection, getDocs } from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
 import TripkoSlika from "../components/images/navbar-logo.png";
+import * as ImagePicker from "expo-image-picker";
+import { getDownloadURL, ref, uploadBytes, getStorage } from "firebase/storage";
+import { updateProfile } from "firebase/auth";
+import { LinearGradient } from "expo-linear-gradient";
+
 const LOGO_IMAGE = Image.resolveAssetSource(TripkoSlika).uri;
+const storage = getStorage();
 
 const LoginScreen = () => {
   const [email, setEmail] = useState("");
@@ -24,62 +31,124 @@ const LoginScreen = () => {
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [surename, setSurename] = useState("");
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [mobilePhone, setMobilePhone] = useState("");
 
   const [register, setRegister] = useState(false);
 
   const navigation = useNavigation();
-  //   useEffect(() => {
-  //     const unsubscribe = onAuthStateChanged(auth, (user) => {
-  //       if (user) {
-  //         navigation.replace("Home");
-  //       }
-  //     });
-  //     return unsubscribe;
-  //   }, []);
+
+  const handleChooseProfilePicture = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        console.log("Permission to access media library denied");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+      if (!result.cancelled) {
+        setProfilePicture(result.uri);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const uploadImage = async (userID) => {
+    if (profilePicture !== null && userID) {
+      try {
+        const imageRef = ref(storage, `images/${userID}.jpg`);
+        const response = await fetch(profilePicture);
+        const blob = await response.blob();
+        await uploadBytes(imageRef, blob);
+
+        // Get the download URL of the uploaded image
+        const downloadURL = await getDownloadURL(imageRef);
+        // Update the user's profile with the photoURL
+        await updateProfile(auth.currentUser, {
+          photoURL: downloadURL,
+        });
+
+        console.log("Image uploaded and user profile updated successfully");
+      } catch (error) {
+        console.log("Error uploading image:", error);
+      }
+    }
+  };
+
   const handleLogin = async (e) => {
     let email = "";
-    let password = "";
+    let passwordLogin = "";
     const profilesRef = collection(db, "profile");
     const q = query(profilesRef, where("username", "==", `${username}`));
 
     const querySnapshot = await getDocs(q);
     querySnapshot.forEach((doc) => {
       email = doc.data().email;
-      password = doc.data().password;
+      passwordLogin = doc.data().password;
     });
-    console.log({ email, password });
-    signInWithEmailAndPassword(auth, email, password)
-      .then((userCredentials) => {
-        const user = userCredentials.user;
-        console.log("Logged in!", user.email);
-      })
-      .catch((error) => {
-        console.log(error.message);
-      });
+    console.log({ email, passwordLogin });
+    if (password === passwordLogin) {
+      signInWithEmailAndPassword(auth, email, passwordLogin)
+        .then((userCredentials) => {
+          const user = userCredentials.user;
+          console.log("Logged in!", user.email);
+        })
+        .catch((error) => {
+          console.log(error.message);
+        });
+    } else {
+      alert("The password is incorrect, please try again.");
+    }
   };
-  const handleSignUp = () => {
-    if (!username || !password || !name || !surename || !email) {
+
+  const handleSignUp = async () => {
+    if (
+      !username ||
+      !password ||
+      !name ||
+      !surename ||
+      !email ||
+      !profilePicture ||
+      !mobilePhone
+    ) {
       alert("Input all the data");
       return;
     }
-    const profilesRef = collection(db, "profile");
 
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(async (userCredentials) => {
-        const registerObject = {
-          username,
-          password,
-          email,
-          name,
-          surename,
-          points: 0,
-          userID: userCredentials.user.uid,
-        };
-        await addDoc(profilesRef, registerObject);
-      })
-      .catch((error) => {
-        console.log(error.message);
-      });
+    try {
+      const userCredentials = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      const registerObject = {
+        username,
+        password,
+        email,
+        name,
+        surename,
+        points: 0,
+        userID: userCredentials.user.uid,
+        phone: mobilePhone,
+      };
+
+      const profilesRef = collection(db, "profile");
+      await addDoc(profilesRef, registerObject);
+
+      // Call uploadImage after the user is created and the document is added
+      await uploadImage(userCredentials.user.uid);
+
+      alert("Registered successfully");
+    } catch (error) {
+      alert("Registration failed");
+    }
   };
 
   return (
@@ -91,7 +160,7 @@ const LoginScreen = () => {
           style={styles.image}
         />
         {!register ? (
-          <>
+          <View>
             <TextInput
               placeholder="Username"
               style={styles.input}
@@ -107,52 +176,124 @@ const LoginScreen = () => {
               onChangeText={(text) => setPassword(text)}
               secureTextEntry
             />
-          </>
+          </View>
         ) : (
-          <>
-            <TextInput
-              placeholder="Username"
-              style={styles.input}
-              value={username}
-              onChangeText={(text) => {
-                setUsername(text);
-              }}
-            />
-            <TextInput
-              placeholder="Password"
-              style={styles.input}
-              value={password}
-              onChangeText={(text) => setPassword(text)}
-              secureTextEntry
-            />
-            <TextInput
-              placeholder="Email"
-              style={styles.input}
-              value={email}
-              onChangeText={(text) => setEmail(text)}
-            />
+          <View>
+            <TouchableOpacity onPress={handleChooseProfilePicture}>
+              <View style={styles.profilePictureContainer}>
+                {profilePicture ? (
+                  <Image
+                    source={{ uri: profilePicture }}
+                    style={styles.profilePicture}
+                  />
+                ) : (
+                  <Text style={styles.profilePictureText}>Add Picture</Text>
+                )}
+              </View>
+            </TouchableOpacity>
             <View
               style={{
                 display: "flex",
                 flexDirection: "row",
-                width: "85%",
+                width: "100%",
                 justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
+              <Ionicons name="person" size={24} color="black" />
+              <TextInput
+                placeholder="Username"
+                style={[styles.input, { flex: 1, marginLeft: 5 }]}
+                value={username}
+                onChangeText={(text) => setUsername(text)}
+              />
+            </View>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="lock-closed" size={24} color="black" />
+              <TextInput
+                placeholder="Password"
+                style={[styles.input, { flex: 1, marginLeft: 5 }]}
+                value={password}
+                onChangeText={(text) => setPassword(text)}
+                secureTextEntry
+              />
+            </View>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="mail" size={24} color="black" />
+              <TextInput
+                placeholder="Email"
+                style={[styles.input, { flex: 1, marginLeft: 5 }]}
+                value={email}
+                onChangeText={(text) => setEmail(text)}
+              />
+            </View>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons
+                name="person"
+                size={24}
+                color="black"
+                style={styles.icon}
+              />
               <TextInput
                 placeholder="Name"
-                style={styles.inputRowLeft}
+                style={[styles.input, { flex: 3, marginRight: 1 }]}
                 value={name}
                 onChangeText={(text) => setName(text)}
               />
               <TextInput
                 placeholder="Surename"
-                style={styles.inputRowRight}
+                style={[styles.input, { flex: 4, marginLeft: 1 }]}
                 value={surename}
                 onChangeText={(text) => setSurename(text)}
               />
             </View>
-          </>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons
+                name="call"
+                size={24}
+                color="black"
+                style={styles.icon}
+              />
+              <TextInput
+                placeholder="Phone"
+                style={[styles.input, { flex: 1 }]}
+                value={mobilePhone}
+                onChangeText={(text) => setMobilePhone(text)}
+              />
+            </View>
+          </View>
         )}
       </View>
       <View style={styles.buttonContainer}>
@@ -191,7 +332,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#98d8fa",
   },
   image: {
-    marginBottom: 40,
+    marginBottom: 10,
     marginTop: 80,
     marginRight: 40,
     paddingRight: 40,
@@ -208,6 +349,28 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 5,
   },
+  profilePictureContainer: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "#fff",
+    borderColor: "black",
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  profilePicture: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+  },
+  profilePictureText: {
+    fontSize: 20,
+    color: "black",
+  },
+  inputRow: {},
   inputRowLeft: {
     backgroundColor: "white",
     paddingHorizontal: 15,
