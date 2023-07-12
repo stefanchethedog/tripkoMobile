@@ -3,7 +3,14 @@ import React, { useEffect, useLayoutEffect, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { FlatList } from "react-native-gesture-handler";
 import { ActivityIndicator } from "react-native-web";
-import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
 import { db } from "../firebase";
 
 const userProfileCollectionRefs = collection(db, "profile");
@@ -40,6 +47,28 @@ export default function LeaderboardScreen() {
     };
 
     getUserProfiles();
+    const unsubscribe = onSnapshot(
+      query(
+        userProfileCollectionRefs,
+        where("points", ">", 0),
+        orderBy("points", "desc")
+      ),
+      (snapshot) => {
+        const users = snapshot.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+        }));
+        setData(users);
+        setDataLoaded(true);
+      },
+      (error) => {
+        console.error("Error getting user profiles:", error);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return (

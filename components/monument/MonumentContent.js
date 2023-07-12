@@ -10,6 +10,8 @@ import { StyleSheet } from "react-native";
 import { auth, db } from "../../firebase";
 import { Pressable } from "react-native";
 import { collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { TouchableOpacity } from "react-native-gesture-handler";
+import { Ionicons } from "@expo/vector-icons";
 
 const storage = getStorage();
 const monumentRef = collection(db, "monument");
@@ -27,6 +29,12 @@ export default function MonumentContent({ monumentInfo, userInfo }) {
     }
     getPhoto();
   }, []);
+
+  const [liked, setLiked] = useState(false);
+
+  const toggleLike = () => {
+    setLiked(!liked);
+  };
 
   async function handleDeletePost() {
     try {
@@ -79,6 +87,17 @@ export default function MonumentContent({ monumentInfo, userInfo }) {
               {`${monumentInfo.description}`}
             </Text>
           </View>
+          {userInfo.userID !== auth.currentUser.uid && (
+            <View style={{ alignSelf: "center", width: 50, height: 50 }}>
+              <TouchableOpacity onPress={toggleLike}>
+                <Ionicons
+                  name={liked ? "heart" : "heart-outline"}
+                  size={30}
+                  color={liked ? "red" : "gray"}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -94,6 +113,8 @@ const styles = StyleSheet.create({
   },
   usernameContainer: {
     padding: 1,
+    borderTopEndRadius: 7,
+    borderTopLeftRadius: 7,
     display: "flex",
     flexDirection: "row",
     alignItems: "center",

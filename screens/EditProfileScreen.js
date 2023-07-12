@@ -51,8 +51,8 @@ export default function EditProfileScreen() {
       quality: 1,
     });
 
-    if (!result.cancelled) {
-      setProfilePicture(result.uri);
+    if (!result.canceled) {
+      setProfilePicture(result.assets[0].uri);
       setProfilePictureChange(true);
     }
   };

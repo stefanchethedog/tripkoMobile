@@ -19,6 +19,7 @@ import TripkoSlika from "../components/images/navbar-logo.png";
 import * as ImagePicker from "expo-image-picker";
 import { getDownloadURL, ref, uploadBytes, getStorage } from "firebase/storage";
 import { updateProfile } from "firebase/auth";
+import { LinearGradient } from "expo-linear-gradient";
 
 const LOGO_IMAGE = Image.resolveAssetSource(TripkoSlika).uri;
 const storage = getStorage();

@@ -46,7 +46,15 @@ export default function ProfileScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: "Profile",
+      headerTintColor: "white",
       headerTitleAlign: "center",
+      headerStyle: {
+        backgroundColor: "#0782f9",
+      },
+      headerTitleStyle: {
+        fontWeight: "bold",
+        fontSize: 28,
+      },
     });
   }, []);
 

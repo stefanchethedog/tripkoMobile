@@ -50,9 +50,71 @@ export default function MapScreen() {
   const [nameInput, setNameInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
   const [cityInput, setCityInput] = useState("");
+  const [counter, setCounter] = useState(3);
+  const [filteredMarkers, setFilteredMarkers] = useState([]);
 
+  const incrementCounter = () => {
+    const markersAfterFiltering = markers.filter((marker) => {
+      if (counter === 0) {
+        return (
+          calculateDistance(
+            marker.location.latitude,
+            marker.location.longitude,
+            currentUserLocation.latitude,
+            currentUserLocation.longitude
+          ) < 150
+        );
+      } else if (counter === 1) {
+        return (
+          calculateDistance(
+            marker.location.latitude,
+            marker.location.longitude,
+            currentUserLocation.latitude,
+            currentUserLocation.longitude
+          ) < 300
+        );
+      } else if (counter === 2) {
+        return true;
+      } else if (counter === 3) {
+        return (
+          calculateDistance(
+            marker.location.latitude,
+            marker.location.longitude,
+            currentUserLocation.latitude,
+            currentUserLocation.longitude
+          ) < 50
+        );
+      }
+    });
+    setFilteredMarkers(markersAfterFiltering);
+    if (counter === 3) {
+      setCounter(0);
+    } else {
+      setCounter((prev) => prev + 1);
+    }
+  };
   const mapRef = useRef(0);
   const bottomWindowHeight = useRef(new Animated.Value(0)).current;
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance * 1000; // Convert to meters
+  };
+
+  // Helper function to convert degrees to radians
+  const toRadians = (degrees) => {
+    return degrees * (Math.PI / 180);
+  };
 
   const navigation = useNavigation();
   useLayoutEffect(() => {
@@ -89,9 +151,8 @@ export default function MapScreen() {
     }).start(() => {});
   };
   useEffect(() => {
-    // Start the interval when the component mounts
-    const intervalId = setInterval(getUserLocation, 1000);
-    // Clear the interval when the component unmounts
+    setTimeout(() => getUserLocation(), 100);
+    const intervalId = setInterval(getUserLocation, 5000);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -122,9 +183,6 @@ export default function MapScreen() {
     setRerenderMarker(true);
     setCurrentLocationLoaded(true);
   };
-  useEffect(() => {
-    getUserLocation();
-  }, []);
 
   useEffect(() => {
     const getMarkers = async () => {
@@ -138,6 +196,7 @@ export default function MapScreen() {
           };
         });
         setMarkers(filteredData);
+        setFilteredMarkers(filteredData);
         setLoadingMarkers(false);
         setMarkersLoaded(true);
       } catch (error) {
@@ -171,6 +230,8 @@ export default function MapScreen() {
         };
       });
       setMarkers(updatedMarkers);
+      setFilteredMarkers(updatedMarkers);
+      setCounter(3);
     });
 
     return () => {
@@ -178,39 +239,26 @@ export default function MapScreen() {
     };
   }, []);
 
-  // useEffect(() => {
-  //   const getUserProfiles = async () => {
-  //     try {
-  //       const data = await getDocs(userProfileCollectionRefs);
-  //       const users = data.docs.map((doc) => ({
-  //         ...doc.data(),
-  //         id: doc.id,
-  //       }));
-  //       setUserProfiles(users);
-  //       setMarkers((prevMarkers) =>
-  //         prevMarkers.map((marker) => {
-  //           const userProfile = users.find(
-  //             (user) => user.userID === marker.userID
-  //           );
-  //           return {
-  //             ...marker,
-  //             user: userProfile,
-  //           };
-  //         })
-  //       );
-  //       setUserProfilesLoaded(true);
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-  //   };
-  //   getUserProfiles();
-  // }, [markersLoaded, markers]);
-
+  const getTextForState = () => {
+    switch (counter) {
+      case 0:
+        return "50";
+      case 1:
+        return "150";
+      case 2:
+        return "300";
+      case 3:
+        return "∞";
+      default:
+        return "";
+    }
+  };
   const handleFormSubmit = async () => {
     const name = nameInput;
     const city = cityInput;
     const description = descriptionInput;
     const currUser = auth.currentUser.uid;
+
     const obj = {
       city,
       creationDate: new Date().toDateString(),
@@ -229,7 +277,7 @@ export default function MapScreen() {
     const prevProfile = userProfiles.find((user) => {
       return user.userID === currUser;
     });
-
+    console.log(prevProfile);
     const profileToUpdate = await doc(db, "profile", prevProfile.id);
     await updateDoc(profileToUpdate, { points: (prevProfile.points += 10) });
   };
@@ -275,7 +323,7 @@ export default function MapScreen() {
             </Marker>
           )}
           {markersLoaded && userProfilesLoaded
-            ? markers.map((marker) => {
+            ? filteredMarkers.map((marker) => {
                 const coordinateMarker = {
                   latitude: marker.location.latitude,
                   longitude: marker.location.longitude,
@@ -356,6 +404,14 @@ export default function MapScreen() {
               <MaterialIcons name="my-location" size={24} color="white" />
             </View>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.buttonRadiusLocation}
+            onPress={incrementCounter}
+          >
+            <Text style={{ fontSize: 23, fontWeight: "bold", color: "white" }}>
+              {getTextForState()}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -384,7 +440,7 @@ export default function MapScreen() {
               <View style={styles.windowContent} pointerEvents="box-none">
                 <TextInput
                   style={styles.input}
-                  placeholder="Name"
+                  placeholder="Title"
                   onChangeText={(text) => setNameInput(text)}
                   value={nameInput}
                 />
@@ -508,6 +564,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  buttonRadiusLocation: {
+    position: "absolute",
+    bottom: 68,
+    right: 95,
+    backgroundColor: "#bababa",
+    borderRadius: 50,
+    borderColor: "#0571ff",
+    borderWidth: 1,
+    width: 45,
+    height: 45,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   hoverWindow: {
     position: "absolute",
     bottom: 100,
@@ -539,7 +608,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: "absolute",
-    top: 530,
+    top: 500,
     right: 15,
     width: 40,
     height: 40,
@@ -558,7 +627,7 @@ const styles = StyleSheet.create({
     borderColor: "gray",
     backgroundColor: "white",
     borderWidth: 1,
-    marginTop: 5,
+    marginTop: 30,
     marginBottom: 2,
     borderRadius: 8,
     paddingHorizontal: 8,
@@ -575,8 +644,8 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: "blue",
-    height: "100%",
-    width: "100%",
+    height: "70%",
+    width: "98%",
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 20,

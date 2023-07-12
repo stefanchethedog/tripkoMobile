@@ -121,11 +121,26 @@ function TabGroup() {
         component={HomeStackGroup}
         options={{ headerShown: false, tabBarLabel: "Home" }}
       />
-      <Tab.Screen name="TopTabsGroup" component={TopTabsGroup} />
+      <Tab.Screen
+        name="TopTabsGroup"
+        component={TopTabsGroup}
+        options={{
+          title: "Maps/Leaderboard",
+          headerTintColor: "white",
+          headerTitleAlign: "center",
+          headerStyle: {
+            backgroundColor: "#0782f9",
+          },
+          headerTitleStyle: {
+            fontWeight: "bold",
+            fontSize: 28,
+          },
+        }}
+      />
       <Tab.Screen
         name="ProfileStackGroup"
         component={ProfileStackGroup}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, title: "Profile" }}
       />
     </Tab.Navigator>
   );
